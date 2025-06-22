@@ -1,24 +1,13 @@
+import asyncio
 import sys
 import os
-import argparse
+from server import main as run_server
 
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Add current directory to Python path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-def main():
-    parser = argparse.ArgumentParser(description='Run MCP Trading Servers')
-    parser.add_argument('--server', choices=['alphavantage', 'upstox'], 
-                       default='upstox', help='Choose which server to run')
-    
-    args = parser.parse_args()
-    
-    if args.server == 'alphavantage':
-        from alphavantage.alphavantage_server import mcp
-        print("Starting AlphaVantage MCP Server...")
-    elif args.server == 'upstox':
-        from upstox.upstox_server import mcp
-        print("Starting Upstox MCP Server...")
-    
-    mcp.run()
 
 if __name__ == "__main__":
-    main()
+    print ("Starting server...")
+    print (os.getenv("ALPHAVANTAGE_API_KEY"))
+    asyncio.run(run_server())
