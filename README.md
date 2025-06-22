@@ -309,15 +309,42 @@ The architecture follows a clean three-tier design pattern:
 
 ## 🧪 Testing
 
+This project uses pytest for testing with async support.
 
-Test individual tools:
+### Setup Testing Environment
+
+1. Install test dependencies:
 ```bash
-# Test AlphaVantage integration
-python -c "import asyncio; from alphavantage.helper_function import fetch_quote; print(asyncio.run(fetch_quote('AAPL')))"
-
-# Test Upstox integration (requires valid credentials)
-python -c "import asyncio; from upstox.helper_functions import get_portfolio; print(asyncio.run(get_portfolio()))"
+pip install pytest pytest-asyncio pytest-mock
 ```
+
+### Running Tests
+
+Run all tests:
+```bash
+pytest
+```
+
+Run specific test file:
+```bash
+pytest test/test_api_and_server.py
+```
+
+Run tests with verbose output:
+```bash
+pytest -v
+```
+
+Run specific test class:
+```bash
+pytest test/test_api_and_server.py::TestAPIConnections
+```
+
+Run specific test method:
+```bash
+pytest test/test_api_and_server.py::TestAPIConnections::test_alphavantage_api_key_exists
+```
+
 
 ## 📈 Performance & Rate Limits
 

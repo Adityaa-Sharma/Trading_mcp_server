@@ -4,3 +4,4 @@ python-dotenv
 upstox-python-sdk
 requests
 alpha-vantage
+python-dotenv
