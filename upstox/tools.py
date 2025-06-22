@@ -8,3 +8,5 @@ class UpstoxTools(str, Enum):
     GET_PORTFOLIO = "get_portfolio"
     GET_FUNDS = "get_funds"
     CANCEL_ORDER_BY_ID = "cancel_order_by_id"
+    GET_ORDER_STATUS = "get_order_status"
+    GET_ORDER_BOOK = "get_order_book"

@@ -20,7 +20,10 @@ from upstox.helper_functions import (
     place_order,
     get_portfolio,
     get_funds,
-    # search_instruments,
+    cancel_order,
+    get_order_book,
+    get_order_status,
+    get_instrument_token,
 )
 from upstox.tools import UpstoxTools
 
@@ -206,6 +209,16 @@ async def handle_list_tools() -> list[types.Tool]:
                         "type": "string",
                         "description": "BUY or SELL",
                     },
+                    "order_type": {
+                        "type": "string", 
+                        "description": "MARKET or LIMIT",
+                        "default": "MARKET"
+                    },
+                    "price": {
+                        "type": "number",
+                        "description": "Price for LIMIT orders",
+                        "default": 0
+                    }
                 },
                 "required": ["symbol", "quantity", "transaction_type"],
             },
@@ -222,6 +235,37 @@ async def handle_list_tools() -> list[types.Tool]:
         types.Tool(
             name=UpstoxTools.GET_FUNDS.value,
             description="Get account funds and margins from Upstox",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
+        ),
+        types.Tool(
+            name=UpstoxTools.CANCEL_ORDER_BY_ID.value,
+            description="Cancel an order by order ID",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "order_id": {"type": "string", "description": "Order ID to cancel"}
+                },
+                "required": ["order_id"],
+            },
+        ),
+        types.Tool(
+            name=UpstoxTools.GET_ORDER_STATUS.value,
+            description="Get order status by order ID",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "order_id": {"type": "string", "description": "Order ID to check"}
+                },
+                "required": ["order_id"],
+            },
+        ),
+        types.Tool(
+            name=UpstoxTools.GET_ORDER_BOOK.value,
+            description="Get all orders from order book",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -283,25 +327,38 @@ async def handle_call_tool(
             if not symbol or not quantity:
                 raise ValueError("Missing required arguments: symbol, quantity")
 
+            # Get proper instrument token
+            instrument_token = get_instrument_token(symbol)
+            
             # Place buy order with MARKET type (no price needed)
             order_result = await place_order(
-                instrument_token=symbol,
+                instrument_token=instrument_token,
                 quantity=quantity,
                 transaction_type="BUY",
                 order_type="MARKET",
-                product="I",
+                product="D",
                 is_amo=False,
             )
 
-            result = {
-            "status": "success",
-            "action": "BUY",
-            "symbol": symbol,
-            "quantity": quantity,
-            "order_type": "MARKET",
-            "timestamp": datetime.now().isoformat(),
-            "order_id": order_result.get("data", {}).get("order_id", "N/A"),
-            }
+            if order_result.get("status") == "error":
+                result = {
+                    "status": "error",
+                    "message": order_result.get("message"),
+                    "symbol": symbol,
+                    "quantity": quantity,
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                result = {
+                    "status": "success",
+                    "action": "BUY",
+                    "symbol": symbol,
+                    "quantity": quantity,
+                    "order_type": "MARKET",
+                    "timestamp": datetime.now().isoformat(),
+                    "order_id": order_result.get("data", {}).get("order_id", "N/A"),
+                    "full_response": order_result
+                }
 
         elif name == UpstoxTools.SELL_STOCK.value:
             symbol = arguments.get("symbol")
@@ -309,9 +366,12 @@ async def handle_call_tool(
             if not symbol or not quantity:
                 raise ValueError("Missing required arguments: symbol, quantity")
 
+            # Get proper instrument token
+            instrument_token = get_instrument_token(symbol)
+            
             # Place sell order with MARKET type (no price needed)
             order_result = await place_order(
-                instrument_token=symbol,
+                instrument_token=instrument_token,
                 quantity=quantity,
                 transaction_type="SELL",
                 order_type="MARKET",
@@ -319,50 +379,94 @@ async def handle_call_tool(
                 is_amo=False,
             )
 
-            result = {
-            "status": "success",
-            "action": "SELL",
-            "symbol": symbol,
-            "quantity": quantity,
-            "order_type": "MARKET",
-            "timestamp": datetime.now().isoformat(),
-            "order_id": order_result.get("data", {}).get("order_id", "N/A"),
-            }
+            if order_result.get("status") == "error":
+                result = {
+                    "status": "error",
+                    "message": order_result.get("message"),
+                    "symbol": symbol,
+                    "quantity": quantity,
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                result = {
+                    "status": "success",
+                    "action": "SELL",
+                    "symbol": symbol,
+                    "quantity": quantity,
+                    "order_type": "MARKET",
+                    "timestamp": datetime.now().isoformat(),
+                    "order_id": order_result.get("data", {}).get("order_id", "N/A"),
+                    "full_response": order_result
+                }
 
         elif name == UpstoxTools.PLACE_AMO_ORDER.value:
             symbol = arguments.get("symbol")
             quantity = arguments.get("quantity")
             transaction_type = arguments.get("transaction_type")
+            order_type = arguments.get("order_type", "MARKET")
+            price = arguments.get("price", 0)
+            
             if not symbol or not quantity or not transaction_type:
                 raise ValueError(
                     "Missing required arguments: symbol, quantity, transaction_type"
                 )
 
-            # Place AMO order with LIMIT type and a default price
+            # Get proper instrument token
+            instrument_token = get_instrument_token(symbol)
+            
+            # Place AMO order
             order_result = await place_order(
-                instrument_token=symbol,
+                instrument_token=instrument_token,
                 quantity=quantity,
                 transaction_type=transaction_type.upper(),
-                order_type="LIMIT",
+                order_type=order_type,
+                price=price,
                 product="I",
                 is_amo=True,
             )
 
-            result = {
-            "status": "success",
-            "action": f"AMO_{transaction_type.upper()}",
-            "symbol": symbol,
-            "quantity": quantity,
-            "order_type": "LIMIT",
-            "timestamp": datetime.now().isoformat(),
-            "order_id": order_result.get("data", {}).get("order_id", "N/A"),
-            }
+            if order_result.get("status") == "error":
+                result = {
+                    "status": "error",
+                    "message": order_result.get("message"),
+                    "symbol": symbol,
+                    "quantity": quantity,
+                    "transaction_type": transaction_type,
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                result = {
+                    "status": "success",
+                    "action": f"AMO_{transaction_type.upper()}",
+                    "symbol": symbol,
+                    "quantity": quantity,
+                    "order_type": order_type,
+                    "price": price,
+                    "timestamp": datetime.now().isoformat(),
+                    "order_id": order_result.get("data", {}).get("order_id", "N/A"),
+                    "full_response": order_result
+                }
 
         elif name == UpstoxTools.GET_PORTFOLIO.value:
             result = await get_portfolio()
 
         elif name == UpstoxTools.GET_FUNDS.value:
             result = await get_funds()
+
+        elif name == UpstoxTools.CANCEL_ORDER_BY_ID.value:
+            order_id = arguments.get("order_id")
+            if not order_id:
+                raise ValueError("Missing required argument: order_id")
+            result = await cancel_order(order_id)
+
+        elif name == UpstoxTools.GET_ORDER_STATUS.value:
+            order_id = arguments.get("order_id")
+            if not order_id:
+                raise ValueError("Missing required argument: order_id")
+            result = await get_order_status(order_id)
+
+        elif name == UpstoxTools.GET_ORDER_BOOK.value:
+            result = await get_order_book()
 
         else:
             raise ValueError(f"Unknown tool: {name}")
