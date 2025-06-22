@@ -2,3 +2,5 @@ fastmcp
 httpx
 python-dotenv
 mcp
+upstox-python-sdk
+requests
